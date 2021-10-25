@@ -32,9 +32,12 @@ masters <- read_csv(here::here("data/palmyra_master.csv")) %>%
 
 ```{r}
 
+authors <- c(paste0("author_", 1:20))
+
 zotero <- csv %>% 
-  select(item_type, publication_year, title, journal = publication_title, doi, url, manual_tags, abstract = abstract_note) %>% 
-  mutate(zotero_id = 1:n())
+  select(item_type, publication_year, title, author, journal = publication_title, doi, url, manual_tags, abstract = abstract_note) %>% 
+  mutate(zotero_id = 1:n()) %>% 
+  separate(author, authors, sep = ";")
 
 ```
 
@@ -43,4 +46,13 @@ combine_table <- masters %>%
   left_join(zotero, by = "title")
 ```
 
+## authors list
+
+```{r}
+count_per_author <- zotero %>% 
+  group_by(author_1) %>% 
+  tally()
+
+
+```
 
