@@ -1,0 +1,46 @@
+---
+title: "Palmyra Papers Table"
+author: "Camila Vargas"
+date: "10/25/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(bib2df)
+library(tidyverse)
+library(janitor)
+
+```
+
+
+## Read data
+```{r}
+df <- bib2df(here::here("data/zotero_oct25.bib")) %>% 
+  clean_names()
+
+csv <- read_csv(here::here("data/zotero_oct25.csv")) %>% 
+  clean_names()
+
+
+masters <- read_csv(here::here("data/palmyra_master.csv")) %>% 
+  clean_names()
+```
+
+
+```{r}
+
+zotero <- csv %>% 
+  select(item_type, publication_year, title, journal = publication_title, doi, url, manual_tags, abstract = abstract_note) %>% 
+  mutate(zotero_id = 1:n())
+
+```
+
+```{r}
+combine_table <- masters %>% 
+  left_join(zotero, by = "title")
+```
+
+
