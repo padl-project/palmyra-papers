@@ -18,35 +18,86 @@ library(janitor)
 
 ## Read data
 ```{r}
-df <- bib2df(here::here("data/zotero_oct25.bib")) %>% 
+# df <- bib2df(here::here("data/zotero_oct25.bib")) %>% 
+#   clean_names()
+
+zotero <- read_csv(here::here("data/zotero_oct25.csv")) %>% 
+  clean_names() %>% 
+  select(title, publication_year, author, publication_title, doi, url, date, journal_abbreviation)
+
+
+masters <- read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTzUCO3Q2_b7uFlUp_eVCAx0Ss1RrgSWyksX8sTLqjmBEKmsiUM0S_kX2ZuxQJArQ/pub?gid=1022795869&single=true&output=csv") %>% 
   clean_names()
 
-csv <- read_csv(here::here("data/zotero_oct25.csv")) %>% 
-  clean_names()
 
+parc_ref <- read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTzUCO3Q2_b7uFlUp_eVCAx0Ss1RrgSWyksX8sTLqjmBEKmsiUM0S_kX2ZuxQJArQ/pub?gid=2073943422&single=true&output=csv") %>% 
+  clean_names() %>% 
+  mutate(parc_number = str_extract(parc_ref, "(?<=\\{).+"),
+         parc_number = str_remove(parc_number, "\\}"),
+         parc_number = str_remove(parc_number, "\\)"),
+         parc_number = str_remove(parc_number, "\\.") %>% str_replace_all(., fixed(" "), "")) ## removes all spaces inside the string
 
-masters <- read_csv(here::here("data/palmyra_master.csv")) %>% 
-  clean_names()
 ```
 
 
+
+## New Master Table
+It is important to add information such as first author, year of the publication, and reference.
+
+```{r}
+master_complete <- masters %>% 
+  left_join(parc_ref, by = "parc_number")
+
+
+parc_ref_list <- parc_ref %>% 
+  select(parc_number) %>% 
+  pull()
+
+
+check <- master_complete %>% 
+  filter(parc_number %in% parc_ref_list)
+
+```
+
+
+## Match master and Zotero
+
+```{r}
+
+matching_titles <- master_complete %>% 
+  left_join(zotero, by = "title") %>% 
+  arrange(parc_number)
+
+```
+
+In Zotero we have 165 references
+In our Master table we have 191 references
+An only 87 match in title.
+Note: title has to be exactly the same for them to match
+
+## Export new master
+
+```{r}
+write_csv(matching_titles, here::here("master_complete_1102.csv"))
+
+```
+
+
+
+## Authors list
+
+Create a list with all authors that have published at least one paper on Palmyra
 ```{r}
 
 authors <- c(paste0("author_", 1:20))
 
-zotero <- csv %>% 
+zotero_list <- csv %>% 
   select(item_type, publication_year, title, author, journal = publication_title, doi, url, manual_tags, abstract = abstract_note) %>% 
   mutate(zotero_id = 1:n()) %>% 
   separate(author, authors, sep = ";")
 
 ```
 
-```{r}
-combine_table <- masters %>% 
-  left_join(zotero, by = "title")
-```
-
-## authors list
 
 ```{r}
 count_per_author <- zotero %>% 
