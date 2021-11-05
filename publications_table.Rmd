@@ -21,8 +21,11 @@ library(janitor)
 # df <- bib2df(here::here("data/zotero_oct25.bib")) %>% 
 #   clean_names()
 
-zotero <- read_csv(here::here("data/zotero_oct25.csv")) %>% 
+zotero_raw <- read_csv(here::here("data/zotero_oct25.csv"))
+  
+zotero <- zotero_raw %>%
   clean_names() %>% 
+  mutate(title = tolower(title)) %>% 
   select(title, publication_year, author, publication_title, doi, url, date, journal_abbreviation)
 
 
@@ -46,7 +49,8 @@ It is important to add information such as first author, year of the publication
 
 ```{r}
 master_complete <- masters %>% 
-  left_join(parc_ref, by = "parc_number")
+  left_join(parc_ref, by = "parc_number") %>% 
+  mutate(title = tolower(title))
 
 
 parc_ref_list <- parc_ref %>% 
@@ -60,27 +64,49 @@ check <- master_complete %>%
 ```
 
 
-## Match master and Zotero
+## Match master with Zotero
 
 ```{r}
 
 matching_titles <- master_complete %>% 
-  left_join(zotero, by = "title") %>% 
-  arrange(parc_number)
+  inner_join(zotero, by = "title") %>%
+  mutate(title = str_to_title(title))
 
 ```
-
-In Zotero we have 165 references
-In our Master table we have 191 references
-An only 87 match in title.
-Note: title has to be exactly the same for them to match
 
 ## Export new master
 
 ```{r}
-write_csv(matching_titles, here::here("master_complete_1102.csv"))
+
+write_csv(matching_titles, here::here("intermediate_files/matching_title.csv"))
 
 ```
+
+
+## Match Zotero with Masters
+
+```{r}
+
+zotero_no_master <- zotero %>% 
+  anti_join(master_complete, by = "title")
+  # left_join(master_complete, by = "title") %>% 
+  # filter(is.na(id))
+
+
+master_no_zotero <- master_complete %>% 
+  anti_join(zotero, by = "title")
+
+```
+
+
+
+In Zotero we have 165 references
+In our Master table we have 191 references
+An only 87 match in title.
+78 papers in Zotero do not match with titles in Master
+
+Note: title has to be exactly the same for them to match
+
 
 
 
