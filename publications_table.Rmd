@@ -26,7 +26,7 @@ zotero_raw <- read_csv(here::here("data/zotero_oct25.csv"))
 zotero <- zotero_raw %>%
   clean_names() %>% 
   mutate(title = tolower(title)) %>% 
-  select(title, publication_year, author, publication_title, doi, url, date, journal_abbreviation)
+  select(title, item_type, publication_year, author, publication_title, doi, url, date, abstract_note)
 
 
 masters <- read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTzUCO3Q2_b7uFlUp_eVCAx0Ss1RrgSWyksX8sTLqjmBEKmsiUM0S_kX2ZuxQJArQ/pub?gid=1022795869&single=true&output=csv") %>% 
@@ -92,6 +92,7 @@ zotero_no_master <- zotero %>%
   # left_join(master_complete, by = "title") %>% 
   # filter(is.na(id))
 
+write_csv(zotero_no_master, here::here("intermediate_files/zotero_no_master.csv"))
 
 master_no_zotero <- master_complete %>% 
   anti_join(zotero, by = "title")
