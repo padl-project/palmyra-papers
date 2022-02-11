@@ -1,0 +1,47 @@
+---
+title: "Publications Analysis"
+author: "Camila Vargas"
+date: "2/10/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(stringr)
+
+```
+
+## Read table
+```{r}
+all_papers <- read_csv("data/palmyra_publications_0211.csv")
+```
+
+## Explore
+```{r}
+pubs_year <- all_papers %>% 
+  group_by(publication_year) %>% 
+  tally() %>% 
+  arrange(desc(publication_year))
+
+first_auth <- all_papers %>% 
+  mutate(first_author = word(author, 1, sep = ",")) %>% 
+  group_by(first_author) %>% 
+  tally()
+
+```
+
+
+## Fix
+- Harmonize first authors names
+- Harmonize journals
+
+## Visualize
+3 graphs
+
+1. pubs through the years
+    - Need to filter years between 2002 and 2022
+2. Authors count
+3. Journals
