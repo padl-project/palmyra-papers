@@ -28,20 +28,85 @@ pubs_year <- all_papers %>%
 
 first_auth <- all_papers %>% 
   mutate(first_author = word(author, 1, sep = ",")) %>% 
+  mutate(first_author = recode(first_author,
+                               "Baumann" = "Baumann-Pickering",
+                               "Davis K" = "Davis",
+                               "Edwards CB et al." = "Edwards CB",
+                               "Edwards" = "Edwards CB",
+                               "Houlbr√®que" = "Houlbreque",
+                               "Miller-Ter Kuile A" = "Miller Ter Kuile",
+                               "S. Knapp" = "Knapp",
+                              "Vidal-Mart√≠nez" = "Vidal-Martinez",
+                              "Maragos J.E." = "Maragos")) %>% 
   group_by(first_author) %>% 
   tally()
+
+journal <- all_papers %>% 
+  mutate(journal_title = str_to_title(journal_title),
+         journal_title = recode(journal_title,
+                "Encyclopedia Of Modern Coral Reefs: Structure, Form And Process" = "Encyclopedia Of Modern Coral Reefs",
+                "Journal Of Fish Biology," = "Journal Of Fish Biology",
+                "Proceedings Of The Royal Society B: Biological Sciences" = "Proceedings Of The Royal Society B",
+               "Proceedings Of The Royal Society" = "Proceedings Of The Royal Society B")) %>% 
+  group_by(journal_title) %>% 
+  tally() %>% 
+  mutate(perc = (n/196)*100)
 
 ```
 
 
-## Fix
-- Harmonize first authors names
-- Harmonize journals
 
 ## Visualize
 3 graphs
 
 1. pubs through the years
     - Need to filter years between 2002 and 2022
+    
+```{r}
+
+all_papers %>% 
+  filter(publication_year > 2000) %>% 
+  ggplot(aes(x = publication_year))+ 
+  geom_bar(fill = "#096a82")+ 
+  scale_x_continuous(breaks = seq(2002,2022, 1))+ 
+  theme_classic()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))+
+  labs(x = "Year",
+       y = "Number of Publications",
+       title = "Publications about Palmyra Atoll")
+
+```
+
 2. Authors count
+
+Top 12 first authors publications
+
+```{r}
+first_auth %>% 
+  filter(!is.na(first_author)) %>% 
+  top_n(12) %>% 
+  ggplot(aes(x = reorder(first_author, n),
+             y = n))+
+  geom_bar(stat="identity",
+           fill = "#615f8b")+
+  theme_classic()+
+  coord_flip()+
+  scale_y_continuous(breaks = seq(0,16, 4))+ 
+  labs(x = "Author's Last Name",
+       y = "Number of Publications",
+       title = "Researchers with most 1st-author publications")
+```
+
+
 3. Journals
+
+```{r}
+journal %>% 
+  
+```
+
+
+
+
+
+
