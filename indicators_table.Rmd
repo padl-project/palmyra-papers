@@ -1,0 +1,38 @@
+---
+title: "Scraping Impact Indicators"
+author: "Camila Vargas"
+date: "3/14/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(pdftools)
+```
+
+
+## Read pdf
+
+```{r}
+pdf_table <- file.path("pdfs/biaa159_supplemental_file.pdf")
+
+raw_table <- pdf_text(pdf_table)
+
+```
+
+
+## transform table
+
+```{r}
+df_table <- tibble(raw_table) %>% 
+  mutate(page = 1:n()) %>%
+  mutate(text_sep = str_split(text, ' ')) %>%
+  unnest(text_sep)
+
+
+```
+
+
+
