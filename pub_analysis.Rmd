@@ -11,16 +11,20 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
 library(stringr)
+library(readxl)
+library(tidytext)
+library(wordcloud)
 
 ```
 
 ## Read table
 ```{r}
-all_papers <- read_csv("data/palmyra_publications_0211.csv")
+all_papers <- read_excel("data/palmyra_papers_test_0523.xlsx", sheet = "palmyra_publications")
 ```
 
 ## Explore
 ```{r}
+
 pubs_year <- all_papers %>% 
   group_by(publication_year) %>% 
   tally() %>% 
@@ -64,16 +68,28 @@ journal <- all_papers %>%
     
 ```{r}
 
+pal_antique <- rev(c("#855C75", "#D9AF6B", "#AF6458", "#736F4C", "#526A83", "#625377", "#68855C", "#9C9C5E", "#A06177", "#8C785D", "#467378", "#7C7C7C"))
+
+pal_prism <- rev(c("#5F4690", "#1D6996", "#38A6A5", "#0F8554", "#73AF48", "#EDAD08", "#E17C05", "#CC503E", "#94346E", "#6F4070", "#994E95", "#666666"))
+
+pal_pastel <-  rev(c("#66C5CC", "#F6CF71", "#F89C74", "#DCB0F2", "#87C55F", "#9EB9F3", "#FE88B1", "#C9DB74", "#8BE0A4", "#B497E7", "#D3B484", "#B3B3B3"))
+
+pal_safe <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
+
+pal_vivid <- c("#E58606", "#5D69B1", "#52BCA3", "#99C945", "#CC61B0", "#24796C", "#DAA51B", "#2F8AC4", "#764E9F", "#ED645A", "#CC3A8E", "#A5AA99")
+
+
 all_papers %>% 
   filter(publication_year > 2000) %>% 
-  ggplot(aes(x = publication_year))+ 
-  geom_bar(fill = "#096a82")+ 
-  scale_x_continuous(breaks = seq(2002,2022, 1))+ 
+  ggplot(aes(x = publication_year, fill = pub_type))+ 
+  geom_bar()+ #fill = "#096a82"
+  scale_x_continuous(breaks = seq(2002,2022, 1))+
+  scale_fill_manual(values = pal_antique)+
   theme_classic()+ 
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5))+
   labs(x = "Year",
        y = "Number of Publications",
-       title = "Publications about Palmyra Atoll")
+       title = "Publications about Palmyra Atoll by type")
 
 ```
 
@@ -82,19 +98,21 @@ all_papers %>%
 Top 12 first authors publications
 
 ```{r}
+
 first_auth %>% 
   filter(!is.na(first_author)) %>% 
-  top_n(12) %>% 
+  top_n(5) %>% 
   ggplot(aes(x = reorder(first_author, n),
              y = n))+
   geom_bar(stat="identity",
            fill = "#615f8b")+
   theme_classic()+
   coord_flip()+
-  scale_y_continuous(breaks = seq(0,16, 4))+ 
+  #scale_y_continuous(breaks = seq(0,16, 4))+ 
   labs(x = "Author's Last Name",
        y = "Number of Publications",
        title = "Researchers with most 1st-author publications")
+
 ```
 
 
@@ -102,11 +120,102 @@ first_auth %>%
 
 ```{r}
 journal %>% 
+  top_n(10) %>% 
+  ggplot(aes(x = reorder(journal_title, n),
+             y = n))+
+  geom_bar(stat="identity",
+           fill = "#096a82")+
+  theme_classic()+
+  coord_flip()+
+  #scale_y_continuous(breaks = seq(0,16, 4))+ 
+  labs(x = "Journal Title",
+       y = "Number of Publications",
+       title = "Top 10 Journals where Palmyra papers are published")
+
+  
   
 ```
 
 
+## Keyword analysis
 
+We want to analyze title, keywords and abstract
+
+1. Titles
+
+```{r}
+
+data("stop_words")
+
+## Data Frame
+title_text <- all_papers %>% 
+  select(title) %>% 
+  unnest_tokens(word, title) %>% 
+  anti_join(stop_words) %>% 
+  count(word, sort = T)
+
+## Plot
+title_text %>%
+  top_n(15) %>% 
+  ggplot(aes(x = reorder(word, n),
+             y = n))+
+  geom_bar(stat="identity",
+           fill = "#E58606")+
+  theme_classic()+
+  coord_flip()+
+  #scale_y_continuous(breaks = seq(0,16, 4))+ 
+  labs(x = "Title Words",
+       y = "Count",
+       title = "Top 15 words mentioned in Palmyra's publications title")
+  
+```
+
+
+2. Keywords
+
+```{r}
+
+##Table
+
+keyword_text <-  all_papers %>% 
+  select(Keywords) %>% 
+  unnest_tokens(word, Keywords) %>% 
+  anti_join(stop_words) %>% 
+  count(word, sort = T)
+
+
+## filter out keywords and all that were mention just once
+
+## Plot
+keyword_text %>%
+  filter(word != "keywords") %>% 
+  top_n(15) %>% 
+  ggplot(aes(x = reorder(word, n),
+             y = n))+
+  geom_bar(stat="identity",
+           fill = "#096a82")+
+  theme_classic()+
+  coord_flip()+
+  #scale_y_continuous(breaks = seq(0,16, 4))+ 
+  labs(x = "Keywords",
+       y = "Count",
+       title = "Top 15 Keywords in Palmyra's publications")
+
+```
+
+
+3. Abstract
+
+**Note:** See how to fix plurals! eg: Coral and Corals
+
+```{r}
+abstract_text <- all_papers %>% 
+  select(Abstract) %>% 
+  unnest_tokens(word, Abstract) %>% 
+  anti_join(stop_words) %>% 
+  count(word, sort = T) %>% 
+  with(wordcloud(word, n, max.words = 100))
+```
 
 
 
