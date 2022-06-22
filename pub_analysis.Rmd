@@ -5,25 +5,36 @@ date: "2/10/2022"
 output: html_document
 ---
 
+## This script..
+Analysis the list of publications bases on research done at Palmyra Atoll. The list of publications so far is based all publications we are aware of (some might be missing).
+
+This analysis was inspired by the folloing publications:
+[Trends in ecology and conservation over eight decades](https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/fee.2320)
+
+
+## Set up
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+## Load packages
 library(tidyverse)
 library(lubridate)
-library(stringr)
 library(readxl)
 library(tidytext)
 library(wordcloud)
 library(janitor)
+library(tm)
+library(here)
+library(SnowballC)
 
 ```
 
 ## Read table
 ```{r}
 
-excel_sheets("data/palmyra_library_master_20220621.xlsx")
+excel_sheets(here("data/palmyra_library_master_20220621.xlsx"))
 
-all_papers <- read_excel("data/palmyra_library_master_20220621.xlsx", sheet = "palmyra_publications") %>% 
+all_papers <- read_excel(here("data/palmyra_library_master_20220621.xlsx"), sheet = "palmyra_publications") %>% 
   clean_names()
 
 colnames(all_papers)
@@ -45,7 +56,8 @@ sort(unique(all_papers$keywords))
 - pub_type = set all to lower, fix typo "Mastet Thesis" and "peper", "Thesis" = "PhD thesis", make "book" and "book chapter" one category. 
 - keywords = set to lower
 
-## Fix
+## Fix data
+
 ```{r}
 correct_all <- all_papers %>% 
   mutate(pub_type = recode(pub_type,
@@ -65,6 +77,9 @@ sort(unique(correct_all$pub_type))
 
 
 ## Explore
+
+-    Number of publications through the years
+
 ```{r}
 
 pubs_year <- correct_all %>% 
@@ -72,22 +87,50 @@ pubs_year <- correct_all %>%
   tally() %>% 
   arrange(desc(publication_year))
 
+```
+
+
+-   Number of publications researcher's have been 1st authors 
+
+```{r}
+
 first_auth <- correct_all %>% 
-  mutate(first_author = word(author, 1, sep = ",")) %>% 
+  mutate(first_author = word(author, 1, sep = ","))
+
+sort(unique(first_auth$first_author))
+
+first_auth_fix <- first_auth %>% 
   mutate(first_author = recode(first_author,
                                "Baumann" = "Baumann-Pickering",
                                "Davis K" = "Davis",
                                "Edwards CB et al." = "Edwards CB",
                                "Edwards" = "Edwards CB",
-                               "Houlbr√®que" = "Houlbreque",
+                               "Mccauley" = "McCauley",
                                "Miller-Ter Kuile A" = "Miller Ter Kuile",
                                "S. Knapp" = "Knapp",
-                              "Vidal-Mart√≠nez" = "Vidal-Martinez",
                               "Maragos J.E." = "Maragos")) %>% 
   group_by(first_author) %>% 
   tally()
 
+```
 
+-   Number of publications per author
+
+**needs to be refined, final names are not clean**
+
+```{r}
+## All authors
+all_authors <- correct_all %>% 
+  select(author) %>% 
+  unnest_tokens(output = name, 
+                input = author) %>% 
+  count(name, sort = T)
+
+```
+
+-   Which journals are publications published?
+
+```{r}
 journal <- correct_all %>% 
   mutate(journal_title = str_to_title(journal_title),
          journal_title = recode(journal_title,
@@ -98,17 +141,14 @@ journal <- correct_all %>%
   group_by(journal_title) %>% 
   tally() %>% 
   mutate(perc = (n/(sum(n)))*100)
-
 ```
 
 
 
 ## Visualize
-3 graphs
 
-1. pubs through the years
-    - Need to filter years between 2002 and 2022
-    
+-   Color pallets
+
 ```{r}
 
 pal_antique <- rev(c("#855C75", "#D9AF6B", "#AF6458", "#736F4C", "#526A83", "#625377", "#68855C", "#9C9C5E", "#A06177", "#8C785D", "#467378", "#7C7C7C"))
@@ -121,21 +161,31 @@ pal_safe <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
 
 pal_vivid <- c("#E58606", "#5D69B1", "#52BCA3", "#99C945", "#CC61B0", "#24796C", "#DAA51B", "#2F8AC4", "#764E9F", "#ED645A", "#CC3A8E", "#A5AA99")
 
+pal_combo <- c("#F37257", "#F68D5C", "#F4D27A", "#517281", "#7895A2", "#AFC1CC")
 
-correct_all %>% 
-  filter(publication_year > 2000) %>% 
+```
+
+**Plots**
+
+1. Pubs through the years (2002 and 2022)
+    
+```{r}
+
+pubs_by_type <- correct_all %>% 
+  filter(publication_year > 2002,
+         !pub_type %in% c("note", "fact sheet")) %>% 
+  mutate(pub_type = fct_relevel(pub_type, c("paper", "book", "encyclopedia", "phd thesis", "master thesis", "report"))) %>% 
   ggplot(aes(x = publication_year, fill = pub_type))+ 
   geom_bar()+ #fill = "#096a82"
   scale_x_continuous(breaks = seq(2002,2022, 1))+
-  scale_fill_manual(values = pal_antique)+
+  scale_fill_manual(values = rev(pal_combo))+
   theme_classic()+ 
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5))+
   labs(x = "Year",
        y = "Number of Publications",
        title = "Publications about Palmyra Atoll by type")
 
-
-## IMPROVEMNET: fct_relevel!
+plot(pubs_by_type)
 
 ```
 
@@ -165,25 +215,24 @@ first_auth %>%
 3. Journals
 
 ```{r}
+
 journal %>% 
-  top_n(10) %>% 
+  top_n(15) %>% 
   ggplot(aes(x = reorder(journal_title, n),
              y = n))+
   geom_bar(stat="identity",
            fill = "#096a82")+
   theme_classic()+
   coord_flip()+
-  #scale_y_continuous(breaks = seq(0,16, 4))+ 
+  scale_y_continuous(breaks = seq(0,25, 5))+ 
   labs(x = "Journal Title",
        y = "Number of Publications",
        title = "Top 10 Journals where Palmyra papers are published")
-
-  
   
 ```
 
 
-## Keyword analysis
+## Word analysis
 
 We want to analyze title, keywords and abstract
 
@@ -199,13 +248,36 @@ stop_word_vec <- stop_words$word
 title_text <- correct_all %>% 
   select(title) %>% 
   unnest_tokens(word, title) %>% 
-  anti_join(stop_words) %>% 
-  count(word, sort = T)
+  anti_join(stop_words)
+
+
+title_text_vec <- title_text$word
+
+corpus <- Corpus(VectorSource(title_text_vec))
+
+  # mutate(prural = make_plural(word))
+  # count(word, sort = T)
+
+test <- tm_map(corpus, stemDocument)
+
+df <- ldply (test, data.frame)
+colnames(df) <- "word_corr"
+  
+title_count <- df %>% 
+  dplyr::count(word_corr)
+
 
 ## Plot
-title_text %>%
+title_count %>%
   top_n(15) %>% 
-  ggplot(aes(x = reorder(word, n),
+  mutate(word_corr = recode(word_corr,
+                            "atol" = "atoll",
+                            "pacif" = "pacific",
+                            "predat" = "predator",
+                            "marin" = "marine",
+                            "speci" = "species",
+                            "communiti" = "community")) %>% 
+  ggplot(aes(x = reorder(word_corr, n),
              y = n))+
   geom_bar(stat="identity",
            fill = "#E58606")+
@@ -213,7 +285,7 @@ title_text %>%
   coord_flip()+
   #scale_y_continuous(breaks = seq(0,16, 4))+ 
   labs(x = "Title Words",
-       y = "Count",
+       y = "Frequency",
        title = "Top 15 words mentioned in Palmyra's publications title")
   
 ```
@@ -226,10 +298,16 @@ title_text %>%
 ##Table
 
 keyword_text <-  correct_all %>% 
-  select(keywords) %>% 
+  select(keywords) %>%
   unnest_tokens(word, keywords) %>% 
-  anti_join(stop_words) %>% 
-  count(word, sort = T)
+  anti_join(stop_words) %>%
+  mutate(word = recode(word,
+                       "reefs" = "reef",
+                       "atolls" = "atoll",
+                       "predators" = "predator",
+                       "sharks" = "shark",
+                       "corals" = "corals")) %>% 
+  dplyr::count(word, sort = T)
 
 
 ## filter out keywords and all that were mention just once
@@ -237,7 +315,7 @@ keyword_text <-  correct_all %>%
 ## Plot
 keyword_text %>%
   filter(word != "keywords") %>% 
-  top_n(15) %>% 
+  top_n(25) %>% 
   ggplot(aes(x = reorder(word, n),
              y = n))+
   geom_bar(stat="identity",
@@ -247,7 +325,7 @@ keyword_text %>%
   #scale_y_continuous(breaks = seq(0,16, 4))+ 
   labs(x = "Keywords",
        y = "Count",
-       title = "Top 15 Keywords in Palmyra's publications")
+       title = "Top 25 Keywords in Palmyra's publications")
 
 ```
 
@@ -258,29 +336,61 @@ keyword_text %>%
 
 ```{r}
 
-test <- removeWords(correct_all$abstract, stopwords("english")) %>% 
-  as.tibble()
-
-abstract_2g <- test %>% 
+## remove stop words from abstract column
+abstract_2g <- correct_all %>% 
+  select(abstract) %>% #publication_year,
+  filter(!is.na(abstract)) %>% 
+  # group_by(publication_year) %>% 
+  # dplyr::mutate(total_pub_yr = n()) %>% 
+  # ungroup() %>% 
+  dplyr::mutate(abstract = removeWords(abstract, stopwords("english"))) %>% 
   unnest_tokens(output = ngram, 
-                input = value,
-                token = "ngrams",
-                n = 2) %>% 
-  count(ngram, sort = T)
-  
-
-abstract_text <- correct_all %>% 
-  
-  unnest_tokens(output = word, 
                 input = abstract,
                 token = "ngrams",
                 n = 2) %>% 
-  #anti_join(stop_words) %>% 
-  count(word, sort = T) %>% 
-  with(wordcloud(word, n, max.words = 100)) ## not really working!
+  dplyr::mutate(ngram = recode(ngram,
+                               "coral reefs" = "coral reef",
+                               "reef sharks" = "reef shark")) %>% 
+  # group_by()
+ # group_by(publication_year, total_pub_yr) %>%
+  dplyr::count(ngram) %>% 
+  filter(!ngram %in% c("our results", "results suggest", "m 2", "m depth", "these results", "we found"))
+  
+  # dplyr::mutate(fraction = n/total_pub_yr)
+  
+
+## just one word
+abstract_word <- correct_all %>% 
+  select(publication_year, abstract) %>% 
+  unnest_tokens(output = word, 
+                input = abstract) %>% 
+  anti_join(stop_words) %>% 
+  group_by(publication_year) %>% 
+  count(word, sort = T)
+  
 
 ```
 
-Inspiration paper
-https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/fee.2320
+**Plot abstract concepts**
+
+```{r}
+
+abstract_2g %>%
+  top_n(40) %>% 
+  ggplot(aes(x = reorder(ngram, n),
+             y = n))+
+  geom_bar(stat="identity",
+           fill = "#7895A2")+
+  theme_classic()+
+  coord_flip()+
+  scale_y_continuous(breaks = seq(0,160, 10))+ 
+  labs(x = "Concept",
+       y = "Frequency",
+       title = "Top 40 concepts mentioned in Palmyra's publications abstracts")
+  
+
+
+
+```
+
 
