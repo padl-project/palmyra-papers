@@ -14,23 +14,65 @@ library(stringr)
 library(readxl)
 library(tidytext)
 library(wordcloud)
+library(janitor)
 
 ```
 
 ## Read table
 ```{r}
-all_papers <- read_excel("data/palmyra_papers_test_0523.xlsx", sheet = "palmyra_publications")
+
+excel_sheets("data/palmyra_library_master_20220621.xlsx")
+
+all_papers <- read_excel("data/palmyra_library_master_20220621.xlsx", sheet = "palmyra_publications") %>% 
+  clean_names()
+
+colnames(all_papers)
 ```
+
+
+## Check data
+
+```{r}
+str(all_papers)
+
+sort(unique(all_papers$pub_type))
+sort(unique(all_papers$publication_year)) ## all good
+sort(unique(all_papers$keywords))
+
+
+```
+
+- pub_type = set all to lower, fix typo "Mastet Thesis" and "peper", "Thesis" = "PhD thesis", make "book" and "book chapter" one category. 
+- keywords = set to lower
+
+## Fix
+```{r}
+correct_all <- all_papers %>% 
+  mutate(pub_type = recode(pub_type,
+                           "Mastet Thesis" = "Master Thesis",
+                           "Thesis" = "PhD thesis",
+                           "book chapter" = "book",
+                           "peper" = "paper") %>% str_to_lower(.),
+         keywords = str_to_lower(keywords),
+         title = str_to_title(title))
+
+## check
+sort(unique(correct_all$pub_type))
+
+```
+
+
+
 
 ## Explore
 ```{r}
 
-pubs_year <- all_papers %>% 
+pubs_year <- correct_all %>% 
   group_by(publication_year) %>% 
   tally() %>% 
   arrange(desc(publication_year))
 
-first_auth <- all_papers %>% 
+first_auth <- correct_all %>% 
   mutate(first_author = word(author, 1, sep = ",")) %>% 
   mutate(first_author = recode(first_author,
                                "Baumann" = "Baumann-Pickering",
@@ -45,7 +87,8 @@ first_auth <- all_papers %>%
   group_by(first_author) %>% 
   tally()
 
-journal <- all_papers %>% 
+
+journal <- correct_all %>% 
   mutate(journal_title = str_to_title(journal_title),
          journal_title = recode(journal_title,
                 "Encyclopedia Of Modern Coral Reefs: Structure, Form And Process" = "Encyclopedia Of Modern Coral Reefs",
@@ -54,7 +97,7 @@ journal <- all_papers %>%
                "Proceedings Of The Royal Society" = "Proceedings Of The Royal Society B")) %>% 
   group_by(journal_title) %>% 
   tally() %>% 
-  mutate(perc = (n/196)*100)
+  mutate(perc = (n/(sum(n)))*100)
 
 ```
 
@@ -79,7 +122,7 @@ pal_safe <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
 pal_vivid <- c("#E58606", "#5D69B1", "#52BCA3", "#99C945", "#CC61B0", "#24796C", "#DAA51B", "#2F8AC4", "#764E9F", "#ED645A", "#CC3A8E", "#A5AA99")
 
 
-all_papers %>% 
+correct_all %>% 
   filter(publication_year > 2000) %>% 
   ggplot(aes(x = publication_year, fill = pub_type))+ 
   geom_bar()+ #fill = "#096a82"
@@ -90,6 +133,9 @@ all_papers %>%
   labs(x = "Year",
        y = "Number of Publications",
        title = "Publications about Palmyra Atoll by type")
+
+
+## IMPROVEMNET: fct_relevel!
 
 ```
 
@@ -147,8 +193,10 @@ We want to analyze title, keywords and abstract
 
 data("stop_words")
 
+stop_word_vec <- stop_words$word
+
 ## Data Frame
-title_text <- all_papers %>% 
+title_text <- correct_all %>% 
   select(title) %>% 
   unnest_tokens(word, title) %>% 
   anti_join(stop_words) %>% 
@@ -177,9 +225,9 @@ title_text %>%
 
 ##Table
 
-keyword_text <-  all_papers %>% 
-  select(Keywords) %>% 
-  unnest_tokens(word, Keywords) %>% 
+keyword_text <-  correct_all %>% 
+  select(keywords) %>% 
+  unnest_tokens(word, keywords) %>% 
   anti_join(stop_words) %>% 
   count(word, sort = T)
 
@@ -209,13 +257,30 @@ keyword_text %>%
 **Note:** See how to fix plurals! eg: Coral and Corals
 
 ```{r}
-abstract_text <- all_papers %>% 
-  select(Abstract) %>% 
-  unnest_tokens(word, Abstract) %>% 
-  anti_join(stop_words) %>% 
+
+test <- removeWords(correct_all$abstract, stopwords("english")) %>% 
+  as.tibble()
+
+abstract_2g <- test %>% 
+  unnest_tokens(output = ngram, 
+                input = value,
+                token = "ngrams",
+                n = 2) %>% 
+  count(ngram, sort = T)
+  
+
+abstract_text <- correct_all %>% 
+  
+  unnest_tokens(output = word, 
+                input = abstract,
+                token = "ngrams",
+                n = 2) %>% 
+  #anti_join(stop_words) %>% 
   count(word, sort = T) %>% 
-  with(wordcloud(word, n, max.words = 100))
+  with(wordcloud(word, n, max.words = 100)) ## not really working!
+
 ```
 
-
+Inspiration paper
+https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/fee.2320
 
