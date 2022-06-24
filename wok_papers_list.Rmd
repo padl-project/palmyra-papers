@@ -1,0 +1,71 @@
+---
+title: "Adding web search papers"
+author: "Camila Vargas"
+date: '2022-06-24'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+## Load libraries
+librarian::shelf("tidyverse",
+                 "janitor",
+                 "here",
+                 "readxl")
+
+```
+
+
+## Read data
+Data downloaded from the Web of Knowlegde after searching for Palmyra Atoll in all fields.
+
+[Query link here](https://www.webofscience.com/wos/woscc/summary/5612105c-1fa9-424a-8937-6eacfdc459a0-3fe3e2a6/recently-added/1)
+
+
+```{r}
+wok_all <- read_excel(here::here("data/webofknowlege_20220624.xls")) %>% 
+  clean_names() 
+
+
+master_all <-  read_excel(here("data/palmyra_library_master_20220621.xlsx"), sheet = "palmyra_publications") %>% 
+  clean_names()
+
+
+range(wok_all$publication_year, na.rm = T)##2003 to 2022
+
+```
+
+## Using the data we need
+
+```{r}
+wok_title <- wok_all %>% 
+  select(title = article_title, auth_w = authors) %>% 
+  mutate(w_id = paste0("wok_", 1:n()),
+         title = str_to_lower(title))
+  
+  
+master_title <- master_all %>% 
+  select(title, auth_m = author) %>% 
+  mutate(m_id = paste0("master_", 1:n()),
+         title = str_to_lower(title))
+
+```
+
+
+## Combine
+
+```{r}
+
+both <- wok_title %>% 
+  full_join(master_title, by = "title")
+
+
+only_wok <- both %>% 
+  filter(is.na(m_id))
+  
+```
+
+
+
+
+
