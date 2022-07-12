@@ -5,6 +5,15 @@ date: '2022-06-24'
 output: html_document
 ---
 
+**Data:** Downloaded from the Web of Knowledge after searching for Palmyra Atoll in all fields on June 24, 2022.
+
+[WOK Query link here](https://www.webofscience.com/wos/woscc/summary/5612105c-1fa9-424a-8937-6eacfdc459a0-3fe3e2a6/recently-added/1)
+
+_Note:_ this query updates with time. If you open this link WOK will provide the most updated search of Palmyra* Atoll* (all fields). So, this link will likely not match out downloaded data because new publications might have been added after 2022-06-24.
+
+**This script:** Reads the list downloaded form WOK to be able to compare with what we have in our master spreadsheet. Ultimately add missing publications to have a complete list.
+
+
 ```{r setup, include=FALSE}
 
 ## Load libraries
@@ -17,9 +26,6 @@ librarian::shelf("tidyverse",
 
 
 ## Read data
-Data downloaded from the Web of Knowlegde after searching for Palmyra Atoll in all fields.
-
-[Query link here](https://www.webofscience.com/wos/woscc/summary/5612105c-1fa9-424a-8937-6eacfdc459a0-3fe3e2a6/recently-added/1)
 
 
 ```{r}
@@ -27,7 +33,7 @@ wok_all <- read_excel(here::here("data/webofknowlege_20220624.xls")) %>%
   clean_names() 
 
 
-master_all <-  read_excel(here("data/palmyra_library_master_20220621.xlsx"), sheet = "palmyra_publications") %>% 
+master_all <-  read_excel(here("data/palmyra_library_master_20220712.xlsx"), sheet = "palmyra_publications") %>% 
   clean_names()
 
 
@@ -38,26 +44,28 @@ range(wok_all$publication_year, na.rm = T)##2003 to 2022
 ## Using the data we need
 
 ```{r}
-wok_title <- wok_all %>% 
-  select(title = article_title, auth_w = authors) %>% 
-  mutate(w_id = paste0("wok_", 1:n()),
-         title = str_to_lower(title))
+wok_title_doi <- wok_all %>% 
+  select(wok_title = article_title, wok_auth = authors, doi) %>% 
+  mutate(wok_id = paste0("wok_", 1:n()),
+         wok_title = str_to_lower(wok_title))
   
   
-master_title <- master_all %>% 
-  select(title, auth_m = author) %>% 
+master_title_doi <- master_all %>% 
+  select(m_title = title, m_auth = author, doi) %>% 
   mutate(m_id = paste0("master_", 1:n()),
-         title = str_to_lower(title))
+         m_title = str_to_lower(m_title))
 
 ```
 
 
 ## Combine
+Joining by DOI is a more reliable connector between the two data sets. Note that some entries in the Master xlsx do not have DOI. This are either thesis, encyclopedias, book chapters in some cases or a couple of papers that do not have an DOI associated to them.
+All entries without a DOI do not apear in the WOK list.
 
 ```{r}
 
-both <- wok_title %>% 
-  full_join(master_title, by = "title")
+both <- wok_title_doi %>% 
+  full_join(master_title_doi, by = "doi")
 
 
 only_wok <- both %>% 
@@ -65,7 +73,12 @@ only_wok <- both %>%
   
 ```
 
+There are 91 publications that apparently are not on our list.
 
+**Next step** 
+1. Build a data frame with all the necessary information, matching the master structure as closely as possible
+2. Check and make sure all 91 publications are actually not in the masters
+3. Check for most recent publication in WOK that are not considered in our 2022-06-24 download
 
 
 
