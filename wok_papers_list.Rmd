@@ -16,11 +16,16 @@ _Note:_ this query updates with time. If you open this link WOK will provide the
 
 ```{r setup, include=FALSE}
 
+if (!require(librarian)) {
+  install.packages("librarian")
+  library(librarian)
+}
+
 ## Load libraries
 librarian::shelf("tidyverse",
-                 "janitor",
-                 "here",
-                 "readxl")
+                 "janitor", #simple functions for examining and cleaning dirty data
+                 "here", # #creates paths relative to the top-level directory
+                 "readxl") #reads xlsx files
 
 ```
 
@@ -30,7 +35,8 @@ librarian::shelf("tidyverse",
 
 ```{r}
 wok_all <- read_excel(here::here("data/webofknowlege_20220624.xls")) %>% 
-  clean_names() 
+  clean_names() %>% 
+  mutate(wok_id = paste0("wok_", 1:n()))
 
 
 master_all <-  read_excel(here("data/palmyra_library_master_20220712.xlsx"), sheet = "palmyra_publications") %>% 
@@ -45,15 +51,15 @@ range(wok_all$publication_year, na.rm = T)##2003 to 2022
 
 ```{r}
 wok_title_doi <- wok_all %>% 
-  select(wok_title = article_title, wok_auth = authors, doi) %>% 
-  mutate(wok_id = paste0("wok_", 1:n()),
-         wok_title = str_to_lower(wok_title))
+  select(wok_title = article_title, wok_auth = authors, doi, wok_id) %>% 
+  mutate(wok_title = str_to_lower(wok_title))
   
   
 master_title_doi <- master_all %>% 
   select(m_title = title, m_auth = author, doi) %>% 
   mutate(m_id = paste0("master_", 1:n()),
-         m_title = str_to_lower(m_title))
+         m_title = str_to_lower(m_title),
+         doi = str_remove(doi, "doi.org/"))
 
 ```
 
@@ -63,22 +69,69 @@ Joining by DOI is a more reliable connector between the two data sets. Note that
 All entries without a DOI do not apear in the WOK list.
 
 ```{r}
-
 both <- wok_title_doi %>% 
   full_join(master_title_doi, by = "doi")
-
 
 only_wok <- both %>% 
   filter(is.na(m_id))
   
 ```
 
-There are 91 publications that apparently are not on our list.
+There are 89 publications that apparently are not on our list.
 
-**Next step** 
-1. Build a data frame with all the necessary information, matching the master structure as closely as possible
-2. Check and make sure all 91 publications are actually not in the masters
-3. Check for most recent publication in WOK that are not considered in our 2022-06-24 download
+### Next steps
+
+#### 1. Build a data frame with all the necessary information, matching the master structure as closely as possible
+
+```{r}
+## vector with wok_id that needs to be added to master
+vec_wok_id <- only_wok %>% 
+  select(wok_id) %>% 
+  pull()
+
+
+missing_wok <- wok_all %>% 
+  filter(wok_id %in% vec_wok_id)
+
+wok_to_master <- missing_wok %>% 
+  #select(-author_full_names, -issn, -volume, -issue) %>% 
+  rename( title = article_title,
+          pub_location = doi_link,
+         journal_title = source_title,
+         author = authors) %>% 
+  mutate(transfered_to_zotero_online = "",
+         padl_n = "",
+         pub_type = "paper",
+         parc_status = "NO PARC",
+         parc_number = "-",
+         lib_status = "",
+         data_link = "",
+         reference = "",
+         keywords = "",
+         notes = "",
+         address_mgmt_action_which_one = "") %>% 
+  select(transfered_to_zotero_online, padl_n, title, pub_type, parc_status, parc_number, lib_status, parc_number, lib_status, pub_location, data_link, reference,   publication_year, author, journal_title, doi, abstract, keywords, notes, address_mgmt_action_which_one)
+
+
+write_csv(wok_to_master, here::here("exports/wok_papers_missing_20220624.csv"))
+
+```
+
+
+#### 2. Check and make sure all 89 publications are actually not in the masters
+
+**PUBLICATIONS TITLE THAT IS IN MASTER**
+- Diel temperature and pH variability scale with depth across diverse coral reef habitats
+- Cryptic species obscure introduction pathway of the blue Caribbean sponge (Haliclona (Soestella) caerulea), (order: Haplosclerida) to Palmyra Atoll, Central Pacific
+
+Only two papers in the missing wok list were found in the master. This means there are 87 publications we need to add to our list.
+
+
+#### 3. Chek if all missing wok are actually relevant to Palmyra,sAssign a padl id to all wok publications, and fill in missng information, then add to Zotero
+
+#### 4. Add most recent publication in WOK that are not considered in our 2022-06-24 download
+
+
 
 
 
