@@ -124,10 +124,13 @@ write_csv(wok_to_master, here::here("exports/wok_papers_missing_20220624.csv"))
 - Diel temperature and pH variability scale with depth across diverse coral reef habitats
 - Cryptic species obscure introduction pathway of the blue Caribbean sponge (Haliclona (Soestella) caerulea), (order: Haplosclerida) to Palmyra Atoll, Central Pacific
 
-Only two papers in the missing wok list were found in the master. This means there are 87 publications we need to add to our list.
+Only two papers in the missing wok list were found in the master. Publications above were deleted from wok_papers_missing_20220624.csv,
+This means there are 87 publications on the list that we need to add to our master spreadsheet.
 
 
-#### 3. Chek if all missing wok are actually relevant to Palmyra,sAssign a padl id to all wok publications, and fill in missng information, then add to Zotero
+#### 3. Chek if all missing wok are actually relevant to Palmyra,assign a padl id to all wok publications, and fill in missng information, then add to Zotero
+
+*Next step: Go over all the list in wok_list and add to Zotero if relevant. Add reference, keywords and data link is available
 
 #### 4. Add most recent publication in WOK that are not considered in our 2022-06-24 download
 

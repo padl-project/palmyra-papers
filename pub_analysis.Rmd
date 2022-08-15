@@ -32,10 +32,14 @@ library(SnowballC)
 ## Read table
 ```{r}
 
-excel_sheets(here("data/palmyra_library_master_20220621.xlsx"))
+# excel_sheets(here("data/palmyra_library_master_20220812.xlsx"))
+# 
+# all_papers <- read_excel(here("data/palmyra_library_master_20220621.xlsx"), sheet = "palmyra_publications") %>% 
+#   clean_names()
 
-all_papers <- read_excel(here("data/palmyra_library_master_20220621.xlsx"), sheet = "palmyra_publications") %>% 
+all_papers <- read_csv(here("data/palmyra_library_master_20220812.csv")) %>% 
   clean_names()
+
 
 colnames(all_papers)
 ```
@@ -53,7 +57,7 @@ sort(unique(all_papers$keywords))
 
 ```
 
-- pub_type = set all to lower, fix typo "Mastet Thesis" and "peper", "Thesis" = "PhD thesis", make "book" and "book chapter" one category. 
+- pub_type = make "book" and "book chapter" one category. 
 - keywords = set to lower
 
 ## Fix data
@@ -61,10 +65,7 @@ sort(unique(all_papers$keywords))
 ```{r}
 correct_all <- all_papers %>% 
   mutate(pub_type = recode(pub_type,
-                           "Mastet Thesis" = "Master Thesis",
-                           "Thesis" = "PhD thesis",
-                           "book chapter" = "book",
-                           "peper" = "paper") %>% str_to_lower(.),
+                           "book chapter" = "book"),
          keywords = str_to_lower(keywords),
          title = str_to_title(title))
 
@@ -74,9 +75,31 @@ sort(unique(correct_all$pub_type))
 ```
 
 
-
-
 ## Explore
+
+- Percentage by type
+```{r}
+
+correct_all %>% 
+  group_by(pub_type) %>% 
+  tally() %>% 
+  mutate(pct = n/279,
+         x_axis = "Publications") %>% 
+  ggplot(aes(x = x_axis,
+             y = pct,
+             fill = pub_type))+
+  geom_bar(position="stack",
+           stat = "identity",
+           width = 0.5)+
+  coord_flip()+
+  scale_y_continuous(labels=scales::percent)+
+  theme_bw(base_size = 18)+
+  theme(axis.title = element_blank())+
+  labs(fill = "Type of Publication")
+
+```
+
+
 
 -    Number of publications through the years
 
@@ -172,20 +195,24 @@ pal_combo <- c("#F37257", "#F68D5C", "#F4D27A", "#517281", "#7895A2", "#AFC1CC")
 ```{r}
 
 pubs_by_type <- correct_all %>% 
-  filter(publication_year > 2002,
-         !pub_type %in% c("note", "fact sheet")) %>% 
-  mutate(pub_type = fct_relevel(pub_type, c("paper", "book", "encyclopedia", "phd thesis", "master thesis", "report"))) %>% 
-  ggplot(aes(x = publication_year, fill = pub_type))+ 
-  geom_bar()+ #fill = "#096a82"
+  filter(publication_year > 2002) %>% 
+  #        !pub_type %in% c("note", "fact sheet")) %>% 
+  # mutate(pub_type = fct_relevel(pub_type, c("paper", "book", "encyclopedia", "PhD thesis", "master thesis", "report"))) %>% 
+  ggplot(aes(x = publication_year))+
+  #ggplot(aes(x = publication_year, fill = parc_status))+ 
+  #geom_bar()+ 
+  geom_bar(fill = "#096a82")+
   scale_x_continuous(breaks = seq(2002,2022, 1))+
-  scale_fill_manual(values = rev(pal_combo))+
-  theme_classic()+ 
+  #scale_fill_manual(values = rev(pal_combo))+
+  theme_classic(base_size = 18)+ 
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5))+
   labs(x = "Year",
        y = "Number of Publications",
-       title = "Publications about Palmyra Atoll by type")
+       title = "Publications about Palmyra Atoll")
+
 
 plot(pubs_by_type)
+
 
 ```
 
@@ -221,7 +248,7 @@ journal %>%
   ggplot(aes(x = reorder(journal_title, n),
              y = n))+
   geom_bar(stat="identity",
-           fill = "#096a82")+
+           fill = "#F4D27A")+
   theme_classic()+
   coord_flip()+
   scale_y_continuous(breaks = seq(0,25, 5))+ 
@@ -231,6 +258,18 @@ journal %>%
   
 ```
 
+
+ - PARC, No PARC
+```{r}
+unique(correct_all$parc_status)
+
+parc <- correct_all %>% 
+  group_by(parc_status) %>% 
+  tally()
+
+
+```
+ 
 
 ## Word analysis
 
@@ -260,34 +299,52 @@ corpus <- Corpus(VectorSource(title_text_vec))
 
 test <- tm_map(corpus, stemDocument)
 
+library(plyr)
+library(ggwordcloud)
+
 df <- ldply (test, data.frame)
 colnames(df) <- "word_corr"
   
 title_count <- df %>% 
-  dplyr::count(word_corr)
-
-
-## Plot
-title_count %>%
-  top_n(15) %>% 
+  dplyr::count(word_corr) %>% 
   mutate(word_corr = recode(word_corr,
                             "atol" = "atoll",
                             "pacif" = "pacific",
                             "predat" = "predator",
                             "marin" = "marine",
                             "speci" = "species",
-                            "communiti" = "community")) %>% 
+                            "communiti" = "community",
+                            "variabl" = "variable",
+                            "natur" = "nature",
+                            "stabl" = "stable")) ## the list is long!
+
+
+## Plot
+title_count %>%
+  top_n(15) %>% 
   ggplot(aes(x = reorder(word_corr, n),
              y = n))+
   geom_bar(stat="identity",
            fill = "#E58606")+
-  theme_classic()+
+  theme_classic(base_size = 18)+
   coord_flip()+
   #scale_y_continuous(breaks = seq(0,16, 4))+ 
   labs(x = "Title Words",
        y = "Frequency",
        title = "Top 15 words mentioned in Palmyra's publications title")
   
+## Wordcloud
+
+title_count %>% 
+  top_n(50) %>% 
+  ggplot(aes(label = word_corr, 
+           size = n)) +
+ geom_text_wordcloud_area() +
+  scale_size_area(max_size = 24) +
+  theme_minimal()
+
+
+
 ```
 
 
@@ -306,7 +363,8 @@ keyword_text <-  correct_all %>%
                        "atolls" = "atoll",
                        "predators" = "predator",
                        "sharks" = "shark",
-                       "corals" = "corals")) %>% 
+                       "corals" = "corals",
+                       "islands" = "island")) %>% 
   dplyr::count(word, sort = T)
 
 
@@ -319,8 +377,8 @@ keyword_text %>%
   ggplot(aes(x = reorder(word, n),
              y = n))+
   geom_bar(stat="identity",
-           fill = "#096a82")+
-  theme_classic()+
+           fill = "#7895A2")+
+  theme_classic(base_size = 18)+
   coord_flip()+
   #scale_y_continuous(breaks = seq(0,16, 4))+ 
   labs(x = "Keywords",
@@ -359,14 +417,14 @@ abstract_2g <- correct_all %>%
   # dplyr::mutate(fraction = n/total_pub_yr)
   
 
-## just one word
+## just one word - NOT WORKING
 abstract_word <- correct_all %>% 
   select(publication_year, abstract) %>% 
   unnest_tokens(output = word, 
                 input = abstract) %>% 
   anti_join(stop_words) %>% 
-  group_by(publication_year) %>% 
-  count(word, sort = T)
+  #group_by(publication_year) %>% 
+  count(word)
   
 
 ```
@@ -376,21 +434,94 @@ abstract_word <- correct_all %>%
 ```{r}
 
 abstract_2g %>%
+  filter(!ngram %in% c("this study", "in contrast", "we also")) %>% 
   top_n(40) %>% 
   ggplot(aes(x = reorder(ngram, n),
              y = n))+
   geom_bar(stat="identity",
-           fill = "#7895A2")+
-  theme_classic()+
+           fill = "#96ad8c")+
+  theme_classic(base_size = 16)+
   coord_flip()+
-  scale_y_continuous(breaks = seq(0,160, 10))+ 
+  scale_y_continuous(breaks = seq(0,240, 20))+ 
   labs(x = "Concept",
        y = "Frequency",
        title = "Top 40 concepts mentioned in Palmyra's publications abstracts")
   
+```
 
 
+
+## Searching for management actions key words
+- Rat eradication
+- Coralimorph
+- Shipwreck
+- Rainforest realignment
+
+
+```{r}
+
+mgmt_actions <- correct_all %>% 
+  select(title, padl_n, author, doi, abstract) %>% 
+  mutate(abstract = str_to_lower(abstract),
+         rat_er = ifelse(str_detect(abstract, "rat eradication"), "rat_eradication", NA),
+         coral = ifelse(str_detect(abstract, "corallimorph"), "corallim", NA),
+         ship = ifelse(str_detect(abstract, "shipwreck"), "shipw", NA)) %>% 
+  pivot_longer(cols = c(rat_er, coral, ship),
+               names_to = "col",
+               values_to = "mention_mgmt_action") %>% 
+  select(-col)
+
+mgmt_action_count <- mgmt_actions %>% 
+  group_by(mention_mgmt_action) %>% 
+  tally()
 
 ```
 
+
+## Search specifically for stresors
+**Global**
+Climate Change
+Ocean Warming
+Sea-level rise
+Ocean Acidification
+
+**Local**
+Invasive species
+Marine debris
+Pollution
+Overfishing/Resource extraction
+Habitat Loss (0 found)
+Tourism
+Sedimentation
+Nutrients runoff/fertilization
+
+```{r}
+
+## NOTE: pivot longer duplicates publications
+stressors <- correct_all %>% 
+  select(title, padl_n, author, doi, abstract) %>% 
+  mutate(abstract = str_to_lower(abstract),
+         cc = ifelse(str_detect(abstract, "climate change"), "climate change", NA),
+         ow = ifelse(str_detect(abstract, "warming ocean"), "ocean warming", NA),
+         ow = ifelse(str_detect(abstract, "ocean temperature"), "ocean warming", ow),
+         slr = ifelse(str_detect(abstract, "sea level rise"), "sea level rise", NA),
+         oa = ifelse(str_detect(abstract, "ocean acidification"), "ocean acidification", NA),
+         is = ifelse(str_detect(abstract, "invasive species"), "invasive species", NA),
+         pollu = ifelse(str_detect(abstract, "pollution"), "pollution", NA),
+         overfish = ifelse(str_detect(abstract, "overfishing"), "overfishing", NA),
+         sedi = ifelse(str_detect(abstract, "sedimentation"), "sedimentation", NA),
+         tour = ifelse(str_detect(abstract, "tourism"), "tourism", NA),
+         fert = ifelse(str_detect(abstract, "fertilization"), "fertilization", NA)) %>% 
+   pivot_longer(cols = 6:15,
+               names_to = "col",
+               values_to = "stressor") %>% 
+  select(-col)
+
+
+stressot_count <- stressors %>% 
+  group_by(stressor) %>% 
+  tally()
+
+
+```
 

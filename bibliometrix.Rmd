@@ -1,0 +1,140 @@
+---
+title: "Trying bibliomatrix"
+author: "Camila Vargas Poulsen"
+date: '2022-08-12'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(bibliometrix)
+library(bib2df)
+library(tidyverse)
+library(here)
+library(janitor)
+```
+
+
+## Read data
+
+```{r}
+
+file_name <- here("data/wok_export_20220815.bib")
+
+## Data downloaded from ISI
+pubs_isi <- convert2df(file = file_name,
+                   dbsource = "isi",
+                   format = "bibtex")
+
+## Our customized table
+all_papers <- read_csv(here("data/palmyra_library_master_20220812.csv")) %>% 
+  clean_names()
+
+colnames(all_papers)
+```
+
+
+## Papers of interest
+```{r}
+## only papers
+papers_doi <- all_papers %>% 
+  filter(pub_type %in% c("paper", "note"),
+         !is.na(doi)) %>% 
+  select(padl_n, doi)
+
+
+## combining list
+isi_padl <- pubs_isi %>% 
+  left_join(papers_doi, by = c("DI" = "doi"))
+
+colnames(isi_padl)
+
+## checking doubles
+padl_count <- isi_padl %>% 
+  group_by(padl_n) %>% 
+  tally()
+
+## no doubles only 17 pubs with no matching doi, 6 of them need to be removed from the list because publication is not relevant to Palmyra
+
+## DOI that need to be removed - papers not relevant to Palmyra
+remove_doi <- c("10.1111/jfb.14679", "10.2984/66.3.6", "10.3354/meps09722", "10.1099/ijs.0.033761-0", "10.3354/meps09080", "10.1007/s10841-008-9157-2")
+
+isi_padl <- isi_padl %>% 
+  filter(!DI %in% remove_doi)
+
+## check no DOI match
+no_match <- isi_padl %>% 
+  filter(is.na(padl_n)) %>% 
+  select(TI, DI, PY)
+## Include them all in the analysis - CHECK AND ADD THOSE WHICH ARE NOT ON THE MASTER LIST
+
+## isi_padl is ready to be explored
+
+```
+
+
+## Bibliometrix exploration
+
+
+```{r}
+
+results <- biblioAnalysis(isi_padl)
+
+pubs_summary <- summary(object = results,
+                        k = 10,
+                        pause = FALSE)
+
+
+## most frequently cited article
+isi_padl$CR[1]
+
+
+cited <- citations(isi_padl,
+                   field = "article",
+                   sep = ";")
+
+indices <- Hindex(isi_padl, 
+                  field = "source",
+                  sep = ";", 
+                  years = 10)
+
+indices$CitationList
+
+
+topAU <- authorProdOverTime(isi_padl,
+                            k = 10,
+                            graph = TRUE)
+
+plot(x = results,
+     k = 10,
+     pause = FALSE)
+
+```
+
+
+## Collaboration
+
+```{r}
+# Create a country collaboration network
+
+collab <- metaTagExtraction(isi_padl, Field = "AU_CO", sep = ";")
+
+NetMatrix <- biblioNetwork(collab, analysis = "collaboration", network = "countries", sep = ";")
+
+# Plot the network
+net=networkPlot(NetMatrix, n = dim(NetMatrix)[1], Title = "Country Collaboration", type = "circle", size=TRUE, remove.multiple=FALSE,labelsize=0.7,cluster="none")
+```
+
+
+## key word occurance
+```{r}
+# Create keyword co-occurrences network
+
+keyw_occ <- biblioNetwork(isi_padl, analysis = "co-occurrences", network = "keywords", sep = ";")
+
+# Plot the network
+net=networkPlot(keyw_occ, normalize="association", weighted=T, n = 30, Title = "Keyword Co-occurrences", type = "fruchterman", size=T,edgesize = 5,labelsize=0.7)
+```
+
+
