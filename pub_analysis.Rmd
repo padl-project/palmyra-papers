@@ -74,6 +74,12 @@ sort(unique(correct_all$pub_type))
 
 ```
 
+## Colors
+```{r}
+spectral <- c("#d53e4f", "#f46d43", "#fee08b", "#fee08b", "#e6f598", "#abdda4", "#66c2a5", "#3288bd")
+```
+
+
 
 ## Explore
 
@@ -93,9 +99,11 @@ correct_all %>%
            width = 0.5)+
   coord_flip()+
   scale_y_continuous(labels=scales::percent)+
-  theme_bw(base_size = 18)+
+  scale_fill_manual(values = spectral)+
+  theme_classic(base_size = 18)+
   theme(axis.title = element_blank())+
-  labs(fill = "Type of Publication")
+  labs(fill = "Type of Publication")+
+  ggtitle("Palmyra Atoll's publications by type")
 
 ```
 
@@ -201,14 +209,14 @@ pubs_by_type <- correct_all %>%
   ggplot(aes(x = publication_year))+
   #ggplot(aes(x = publication_year, fill = parc_status))+ 
   #geom_bar()+ 
-  geom_bar(fill = "#096a82")+
+  geom_bar(fill = "#83c4ec")+ ##83c4ec
   scale_x_continuous(breaks = seq(2002,2022, 1))+
   #scale_fill_manual(values = rev(pal_combo))+
   theme_classic(base_size = 18)+ 
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5))+
   labs(x = "Year",
-       y = "Number of Publications",
-       title = "Publications about Palmyra Atoll")
+       y = "Number of Publications")
+       #title = "Publications about Palmyra Atoll")
 
 
 plot(pubs_by_type)
@@ -249,7 +257,7 @@ journal %>%
              y = n))+
   geom_bar(stat="identity",
            fill = "#F4D27A")+
-  theme_classic()+
+  theme_classic(base_size = 16)+
   coord_flip()+
   scale_y_continuous(breaks = seq(0,25, 5))+ 
   labs(x = "Journal Title",
@@ -325,7 +333,7 @@ title_count %>%
   ggplot(aes(x = reorder(word_corr, n),
              y = n))+
   geom_bar(stat="identity",
-           fill = "#E58606")+
+           fill = "#f8ab60")+
   theme_classic(base_size = 18)+
   coord_flip()+
   #scale_y_continuous(breaks = seq(0,16, 4))+ 
@@ -377,7 +385,7 @@ keyword_text %>%
   ggplot(aes(x = reorder(word, n),
              y = n))+
   geom_bar(stat="identity",
-           fill = "#7895A2")+
+           fill = "#96ad8c" )+ #"#7895A2"
   theme_classic(base_size = 18)+
   coord_flip()+
   #scale_y_continuous(breaks = seq(0,16, 4))+ 
@@ -435,17 +443,17 @@ abstract_word <- correct_all %>%
 
 abstract_2g %>%
   filter(!ngram %in% c("this study", "in contrast", "we also")) %>% 
-  top_n(40) %>% 
+  top_n(25) %>% 
   ggplot(aes(x = reorder(ngram, n),
              y = n))+
   geom_bar(stat="identity",
-           fill = "#96ad8c")+
+           fill = "#7895A2")+ #"#96ad8c"
   theme_classic(base_size = 16)+
   coord_flip()+
   scale_y_continuous(breaks = seq(0,240, 20))+ 
   labs(x = "Concept",
        y = "Frequency",
-       title = "Top 40 concepts mentioned in Palmyra's publications abstracts")
+       title = "Top 25 concepts mentioned in Palmyra's publications abstracts")
   
 ```
 
